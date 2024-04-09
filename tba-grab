@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+
+import tbaapiv3client
+
+import json
+import os
+
+cfg = os.environ.get("FRC_APIS_JSON", os.path.expanduser("~/.frc-apis.json"))
+if os.path.exists(cfg):
+    data = {}
+    with open(cfg, "r") as fp:
+        data = json.loads(fp.read())
+    key = data.get('auth', {}).get('tba', {}).get('key')
+
+configuration = tbaapiv3client.Configuration(
+  host = "https://www.thebluealliance.com/api/v3",
+  api_key = {'X-TBA-Auth-Key': key})
+
+client = tbaapiv3client.ApiClient(configuration)
+api_instance = tbaapiv3client.EventApi(client)
+
+events = ["2024micmp1", "2024micmp2", "2024micmp3", "2024micmp4"]
+for event in events:
+    data = api_instance.get_event_op_rs(event)
+    for team in data.oprs.keys():
+        print("%s,%s,%s,%s,%s" % (event, team.replace("frc", ""), data.oprs[team], data.dprs[team], data.ccwms[team]))

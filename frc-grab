@@ -1,0 +1,65 @@
+#!/usr/bin/python3
+
+import base64
+import hashlib
+import json
+import os
+import os.path
+import sys
+import time
+
+from frcclient import client
+from frcclient.types import levels
+
+cfg = os.environ.get("FRC_APIS_JSON", os.path.expanduser("~/.frc-apis.json"))
+udata = {}
+if os.path.exists(cfg):
+    data = {}
+    with open(cfg, "r") as fp:
+        data = json.loads(fp.read())
+    udata = data.get('auth', {}).get('frc', {})
+
+if udata == {}:
+    print("Need to add ~/.frc-apis.json")
+    sys.exit(1)
+
+
+client = client.client(user=udata['user'], key=udata['key'])
+
+def cache(client, path, **kwargs):
+    result = {'path': path, 'args': kwargs}
+    key = hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest()
+    cachepath = os.path.join(".cache", key)
+    if os.path.exists(cachepath):
+        with open(cachepath) as fp:
+            result = json.loads(fp.read())
+        print("[cached] %s" % path)
+        return result['result']
+
+    print(path)
+    result['result'] = client.get(path, **kwargs)
+    result['time'] = time.time()
+    os.makedirs(os.path.dirname(cachepath), exist_ok=True)
+    with open(cachepath, "w") as fp:
+        fp.write(json.dumps(result, sort_keys=True, indent=" "))
+    return result['result']
+
+
+# client.get("2023/rankings/district", districtCode="FIM", limit=2)
+scores = cache(client, "2024/scores/MIANN/" + levels.Quals, teamNumber=7660)
+sched = cache(client, "2024/schedule/MIANN", tournamentLevel=levels.Quals, teamNumber=7660)
+matches = cache(client, "2024/matches/MIANN", tournamentLevel=levels.Quals, teamNumber=7660)
+#import ipdb;  ipdb.set_trace()
+
+scores = cache(client, "2024/scores/MIMIL" + "/" + levels.Quals, teamNumber=7660)
+sched = cache(client, "2024/schedule/MIMIL", tournamentLevel=levels.Quals, teamNumber=7660)
+matches = cache(client, "2024/matches/MIMIL", tournamentLevel=levels.Quals, teamNumber=7660)
+
+scores = cache(client, "2023/scores/MIBEL" + "/" + levels.Quals, teamNumber=7660)
+sched = cache(client, "2023/schedule/MIBEL", tournamentLevel=levels.Quals, teamNumber=7660)
+matches = cache(client, "2023/matches/MIBEL", tournamentLevel=levels.Quals, teamNumber=7660)
+#import ipdb;  ipdb.set_trace()
+
+scores = cache(client, "2022/scores/MIMIL" + "/" + levels.Quals, teamNumber=7660)
+sched = cache(client, "2022/schedule/MIMIL", tournamentLevel=levels.Quals, teamNumber=7660)
+matches = cache(client, "2022/matches/MIMIL", tournamentLevel=levels.Quals, teamNumber=7660)
