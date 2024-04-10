@@ -7,17 +7,20 @@ import sys
 from urllib.parse import quote_plus
 from http import HTTPStatus
 
-
 class client(object):
     endpoint = None
     user = None
     key = None
     tok = None
+    cachepath = None
 
-    def __init__(self, user, key, endpoint="https://frc-api.firstinspires.org/v3.0", tok=None):
+    def __init__(self, user, key, cachepath=None, endpoint="https://frc-api.firstinspires.org/v3.0", tok=None):
         self.endpoint = endpoint
         self.user = user
         self.key = key
+        if cachepath == None:
+            self.cachepath = ".cache"
+
         if (self.tok and self.user != ""):
             raise TypeError("Can't give uuser and tok")
         if self.user != "":
@@ -54,7 +57,12 @@ class client(object):
                     if k not in data:
                         data[k] = []
                     data[k].extend(v)
+                elif k.endswith("CountTotal") or k.endswith("CountPage"):
+                    pass
+                elif k in ("pageTotal", "pageCurrent"):
+                    pass
                 else:
+                    print(json.dumps(rdata, indent=" "))
                     raise TypeError("path %s: %s is not dict or list: %s" % (path, k, v))
 
             #result = rdata[name]
@@ -68,3 +76,18 @@ class client(object):
             n = n + 1
         return data
 
+    def cache(self, client, path, **kwargs):
+        result = {'path': path, 'args': kwargs}
+        key = hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest()
+        cachepath = os.path.join(self.cachepath, key)
+        if os.path.exists(cachepath):
+            with open(cachepath) as fp:
+                result = json.loads(fp.read())
+            return result['result']
+
+        result['result'] = client.get(path, **kwargs)
+        result['time'] = time.time()
+        os.makedirs(os.path.dirname(cachepath), exist_ok=True)
+        with open(cachepath, "w") as fp:
+            fp.write(json.dumps(result, sort_keys=True, indent=" "))
+        return result['result']

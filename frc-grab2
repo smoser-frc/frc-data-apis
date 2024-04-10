@@ -1,0 +1,95 @@
+#!/usr/bin/python3
+
+import json
+import os
+import sys
+
+from frcclient import client
+from frcclient.types import levels
+
+cfg = os.environ.get("FRC_APIS_JSON", os.path.expanduser("~/.frc-apis.json"))
+udata = {}
+if os.path.exists(cfg):
+    data = {}
+    with open(cfg, "r") as fp:
+        data = json.loads(fp.read())
+    udata = data.get('auth', {}).get('frc', {})
+
+if udata == {}:
+    print("Need to add ~/.frc-apis.json")
+    sys.exit(1)
+
+client = client.client(user=udata['user'], key=udata['key'])
+
+data = {}
+query_years = [2017, 2018, 2019, 2021, 2022, 2023, 2024]
+for year in query_years:
+    jfname = "results-%d-fim.json" % year
+    if os.path.isfile(jfname):
+        with open(jfname, "r") as fp:
+            data[year] = json.loads(fp.read())
+    else:
+        print("loading %d" % year)
+        rdata = client.get("%d/rankings/district" % year, districtCode="FIM")
+        ydata = rdata['districtRanks']
+        with open(jfname, "w") as fp:
+            fp.write(json.dumps(ydata, indent=1))
+        data[year] = ydata
+
+# add 'prestateRank' and 'prestatePoints'
+# points isn't as important, but rank is hard to calculate
+for year, teams in data.items():
+    for rank, team in enumerate(sorted(teams, key=lambda d: d["event1Points"] + d["event2Points"], reverse=True)):
+        team["prestateRank"] = rank + 1
+        team["prestatePoints"] = team["event1Points"] + team["event2Points"]
+    with open("psresults-%d-fim.json" % year, "w") as fp:
+        fp.write(json.dumps(teams, indent=1))
+    with open("psresults-%d-fim.csv" % year, "w") as fp:
+        for t in teams:
+            fp.write(','.join(str(n) for n in [
+                t["teamNumber"], t["rank"], t["totalPoints"],
+                t["prestateRank"], t["prestatePoints"],
+                t["event1Code"], t["event1Points"], t["event2Code"], t["event2Points"],
+                t["districtCmpCode"], t["adjustmentPoints"],
+                t["qualifiedDistrictCmp"], t["qualifiedFirstCmp"]]) + "\n")
+
+ranking = 62
+ranklow = ranking - 5
+rankhigh = ranking + 5
+points = 97
+pointslow = points - 5
+pointshigh = points + 5
+years = sorted(data.keys())
+for year in data.keys():
+    if year in (2020, 2021):
+        continue
+    yd = data[year]
+    #print("==== %d ====" % year)
+    #for t in yd:
+    #    print("team %d was %d" % (t["teamNumber"], t["prestateRank"]))
+
+    had_points = [t for t in yd if ((t["event1Points"] + t["event2Points"]) >= points)]
+    had_points_range = [t for t in yd if (
+         ((t["event1Points"] + t["event2Points"]) >= pointslow) and
+         ((t["event1Points"] + t["event2Points"]) <= pointshigh))
+        ]
+    by_points = [t for t in had_points if t["qualifiedFirstCmp"]]
+    by_points_range = [t for t in had_points_range if t["qualifiedFirstCmp"]]
+    had_rank = [t for t in yd if t["prestateRank"] <= rank]
+    had_rank_range = [t for t in yd if t["prestateRank"] <= rankhigh and t["prestateRank"] >= ranklow ]
+    by_rank = [t for t in had_rank if t["qualifiedFirstCmp"]]
+    by_rank_range = [t for t in had_rank_range if t["qualifiedFirstCmp"]]
+    #print("%d : of %d/%d teams with >= %d points qualified" % (year, len(by_points), len(had_points), points))
+    #print("%d : of %d/%d teams ranked %d or better qualified" % (year, len(by_rank), len(had_rank), ranking))
+    print("%d : of %d/%d teams ranked %d - %d qualified" % (year, len(by_rank_range), len(had_rank_range), ranklow, rankhigh))
+    print("%d : of %d/%d teams with %d - %d points qualified" % (year, len(by_points_range), len(had_points_range), pointslow, pointshigh))
+
+sys.exit(0)
+print()
+print(r.headers)
+print(r.request.headers)
+print(r.status_code)
+print(r.text)
+data = r.json()
+print(json.dumps(data, indent=4))
+
