@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import os.path
+import sys
+import time
+
+from frcclient import client
+from frcclient.types import levels
+
+cfg = os.environ.get("FRC_APIS_JSON", os.path.expanduser("~/.frc-apis.json"))
+udata = {}
+if os.path.exists(cfg):
+    data = {}
+    with open(cfg, "r") as fp:
+        data = json.loads(fp.read())
+    udata = data.get('auth', {}).get('frc', {})
+
+if udata == {}:
+    print("Need to add ~/.frc-apis.json")
+    sys.exit(1)
+
+
+client = client.client(user=udata['user'], key=udata['key'])
+
+def get_single(data, name="not-given"):
+    keys = list(data.keys())
+    if len(keys) != 1:
+        raise ValueError("data type %s had %d keys: %s", name, len(keys), keys)
+    return data[keys[0]]
+
+
+year = "2024"
+levels = [levels.Quals, levels.Playoff]
+
+result = client.cache(year + "/events")
+events = get_single(result, "events")
+print(f"There are {len(events)} events in {year}")
+num_events = len(events)
+
+
+for n, ev in enumerate(events):
+    print(f'{n}/{num_events}: Event code {ev["code"]} type={ev["type"]} was ' +
+          f'week {ev["weekNumber"]} {ev["districtCode"]}/{ev["divisionCode"]}')
+
+    for level in levels:
+        result = client.cache(f'{year}/scores/{ev["code"]}/{level}')
+        scores = get_single(result, "scores")
+
+        result = client.cache(f'{year}/schedule/{ev["code"]}', tournamentLevel=level)
+        schedule = get_single(result, "schedule")
+
+        result = client.cache(f'{year}/matches/{ev["code"]}', tournamentLevel=level)
+        matches = get_single(result, "matches")
+
+        # endGameSpotLightBonusPoints...
+        print("   Had %d matches in %s" % (len(matches), level))
+
+sys.exit(1)
