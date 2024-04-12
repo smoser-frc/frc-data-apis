@@ -4,7 +4,6 @@ import json
 import os
 import os.path
 import sys
-import time
 
 from frcclient import client
 from frcclient.types import levels
