@@ -36,6 +36,15 @@ sb = statbotics.Statbotics()
 teams = load("2024cmptx-teams.json",
     sb.get_team_events, event="2024cmptx", limit=10000)
 
+for field in ["gal", "new", "arc", "mil", "cur", "hop", "gal", "joh", "cmptx"]:
+    event = "2024" + field
+    teams = load(event + "-teams.json",
+        sb.get_team_events, event=event, limit=10000)
+    print("%s got %d teams" % (event, len(teams)))
+
+teams = load("2024cmptx-teams.json",
+    sb.get_team_events, event="2024cmptx", limit=10000)
+
 teams = load("2024cur-teams.json",
     sb.get_team_events, event="2024cur", limit=10000)
 
