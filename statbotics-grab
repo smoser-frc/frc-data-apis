@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+import json
+import os
+import sys
+
+import statbotics
+
+year = 2024
+district = "FIM"
+if len(sys.argv) == 2:
+    district = sys.argv[1]
+district = district.lower()
+name = district
+if district == "all":
+    district = None
+base = "-".join([name, str(year)])
+
+def load(name, func, **kwargs):
+    msg = "asking %s - %s(%s)" % (name, func.__name__, kwargs)
+    if os.path.isfile(name):
+        print("[cached] " + msg)
+        with open(name, "r") as fp:
+            return json.loads(fp.read())
+    print(msg)
+    data = func(**kwargs)
+    with open(name, "w") as fp:
+        fp.write(json.dumps(data))
+    return data
+
+
+sb = statbotics.Statbotics()
+
+#https://www.statbotics.io/event/2024cmptx
+
+
+teams = load("2024cmptx-teams.json",
+    sb.get_team_events, event="2024cmptx", limit=10000)
+
+teams = load("2024cur-teams.json",
+    sb.get_team_events, event="2024cur", limit=10000)
+
+print("that got  %d" % len(teams))
+
+#teams = sb.get_teams(district=district, limit=10000, active=true)
+#with open(base + "-teams.json", "w") as fp:
+#    fp.write(json.dumps(teams))
+
+#team_years = load(base + "-team-years.json",
+#    sb.get_team_years, year=year, district=district, limit=10000)

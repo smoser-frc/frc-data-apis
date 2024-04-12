@@ -1,2 +1,3 @@
 tba-api-v3client
 requests
+statbotics
