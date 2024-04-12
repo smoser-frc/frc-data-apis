@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import os.path
+import sys
+
+from frcclient import client
+from frcclient.types import levels
+
+cfg = os.environ.get("FRC_APIS_JSON", os.path.expanduser("~/.frc-apis.json"))
+udata = {}
+if os.path.exists(cfg):
+    data = {}
+    with open(cfg, "r") as fp:
+        data = json.loads(fp.read())
+    udata = data.get('auth', {}).get('frc', {})
+
+if udata == {}:
+    print("Need to add ~/.frc-apis.json")
+    sys.exit(1)
+
+
+# this just strips off a single top level key in 'data'. It is useful when
+# a response to client.get() has a single field, like most frc responses do.
+def get_single(data, name="not-given"):
+    keys = list(data.keys())
+    if len(keys) != 1:
+        raise ValueError("data type %s had %d keys: %s", name, len(keys), keys)
+    return data[keys[0]]
+
+
+client = client.client(user=udata['user'], key=udata['key'])
+
+year = "2024"
+mylevels = [levels.Quals, levels.Playoff]
+
+result = client.cache(year + "/events")
+events = get_single(result, "events")
+num_events = len(events)
+
+result = client.cache(year + "/teams")
+allteams = get_single(result, "teams")
+
+hplaydata = {}
+for team in allteams:
+    hplaydata[team['teamNumber']] = {'matches': 0, 'spl': 0, 'spm': 0}
+
+print(f"There are {len(allteams)} teams and {len(events)} events in {year}")
+
+for n, ev in enumerate(events):
+    print(f'{n+1}/{num_events}: Event code {ev["code"]} type={ev["type"]} was ' +
+          f'week {ev["weekNumber"]} {ev["districtCode"]}/{ev["divisionCode"]}')
+
+    for level in mylevels:
+        result = client.cache(f'{year}/scores/{ev["code"]}/{level}')
+        scores = get_single(result, "scores")
+        scoremn = {s['matchNumber']: s for s in scores}
+
+        result = client.cache(f'{year}/matches/{ev["code"]}', tournamentLevel=level)
+        matches = get_single(result, "matches")
+        matchmn = {s['matchNumber']: s for s in matches}
+
+        for mnum in sorted(matchmn.keys()):
+            if mnum not in matchmn:
+                if level != levels.Playoff:
+                    print(f'  {ev["districtCode"]}/{level}/{mnum} did not have match')
+                continue
+            if mnum not in scoremn:
+                if level != levels.Playoff:
+                    print(f'  {ev["districtCode"]}/{level}/{mnum} did not have score')
+                continue
+            mmatch = matchmn[mnum]
+            mscore = scoremn[mnum]
+            red = [t['teamNumber'] for t in mmatch['teams'] if t['station'].startswith("Red")]
+            blue = [t['teamNumber'] for t in mmatch['teams'] if t['station'].startswith("Blue")]
+            rscores = [s for s in mscore['alliances'] if s['alliance'] == 'Red']
+            bscores = [s for s in mscore['alliances'] if s['alliance'] == 'Blue']
+            if len(rscores) != 0:
+                spl = rscores[0]['endGameSpotLightBonusPoints']
+                for t in red:
+                    hplaydata[t]['matches'] = hplaydata[t]['matches'] + 1
+                    hplaydata[t]['spl'] = hplaydata[t]['spl'] + spl
+                    if spl:
+                        hplaydata[t]['spm'] = hplaydata[t]['spm'] + 1
+            if len(bscores) != 0:
+                spl = bscores[0]['endGameSpotLightBonusPoints']
+                for t in blue:
+                    hplaydata[t]['matches'] = hplaydata[t]['matches'] + 1
+                    hplaydata[t]['spl'] = hplaydata[t]['spl'] + spl
+                    if spl:
+                        hplaydata[t]['spm'] = hplaydata[t]['spm'] + 1
+
+        # endGameSpotLightBonusPoints...
+        #import ipdb; ipdb.set_trace()
+        print("   Had %d matches in %s" % (len(matches), level))
+
+with open("hplayer.json", "w") as fp:
+    fp.write(json.dumps(hplaydata, indent=1))
+
+results = sorted(hplaydata.items(), key=lambda d: d[1]['spl'])
+import pprint; pprint.pprint(results)
+
+sys.exit(1)
