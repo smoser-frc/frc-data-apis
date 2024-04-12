@@ -41,21 +41,24 @@ num_events = len(events)
 
 result = client.cache(year + "/teams")
 allteams = {t['teamNumber']:t for t in get_single(result, "teams")}
+mics = ['micCenterStage', 'micStageLeft', 'micStageRight']
+
 
 hplaydata = {}
 for team, teamdata in allteams.items():
-    hplaydata[team] = {'matches': 0, 'spl': 0, 'spm': 0,
+    hplaydata[team] = {'matches': 0, 'mics': 0, 'spm': 0,
+                       'spb': 0,
                        'district': teamdata['districtCode'],
                        'country': teamdata['country'],
                        'name': teamdata['nameShort'].strip(),
                        'state': teamdata['stateProv']}
 #import pdb;pdb.set_trace()
 
-print(f"There are {len(allteams)} teams and {len(events)} events in {year}")
+#print(f"There are {len(allteams)} teams and {len(events)} events in {year}")
 
 for n, ev in enumerate(events):
-    print(f'{n+1}/{num_events}: Event code {ev["code"]} type={ev["type"]} was ' +
-          f'week {ev["weekNumber"]} {ev["districtCode"]}/{ev["divisionCode"]}')
+    #print(f'{n+1}/{num_events}: Event code {ev["code"]} type={ev["type"]} was ' +
+    #      f'week {ev["weekNumber"]} {ev["districtCode"]}/{ev["divisionCode"]}')
 
     for level in mylevels:
         result = client.cache(f'{year}/scores/{ev["code"]}/{level}')
@@ -81,24 +84,24 @@ for n, ev in enumerate(events):
             blue = [t['teamNumber'] for t in mmatch['teams'] if t['station'].startswith("Blue")]
             rscores = [s for s in mscore['alliances'] if s['alliance'] == 'Red']
             bscores = [s for s in mscore['alliances'] if s['alliance'] == 'Blue']
-            if len(rscores) != 0:
-                spl = rscores[0]['endGameSpotLightBonusPoints']
-                for t in red:
+
+            for alliance, mscores in ((red, rscores), (blue, bscores)):
+                if len(mscores) == 0:
+                    continue
+                msc = mscores[0]
+                spb = msc['endGameSpotLightBonusPoints']
+                miked = [k for k in mics if msc[k]]
+
+                for t in alliance:
                     hplaydata[t]['matches'] = hplaydata[t]['matches'] + 1
-                    hplaydata[t]['spl'] = hplaydata[t]['spl'] + spl
-                    if spl:
-                        hplaydata[t]['spm'] = hplaydata[t]['spm'] + 1
-            if len(bscores) != 0:
-                spl = bscores[0]['endGameSpotLightBonusPoints']
-                for t in blue:
-                    hplaydata[t]['matches'] = hplaydata[t]['matches'] + 1
-                    hplaydata[t]['spl'] = hplaydata[t]['spl'] + spl
-                    if spl:
+                    hplaydata[t]['spb'] = hplaydata[t]['spb'] + spb
+                    hplaydata[t]['mics'] = hplaydata[t]['mics'] + len(miked)
+                    if spb:
                         hplaydata[t]['spm'] = hplaydata[t]['spm'] + 1
 
         # endGameSpotLightBonusPoints...
         #import ipdb; ipdb.set_trace()
-        print("   Had %d matches in %s" % (len(matches), level))
+        #print("   Had %d matches in %s" % (len(matches), level))
 
 hplaydata = {k: v for k, v in hplaydata.items() if v['matches'] != 0}
 with open("hplayer.json", "w") as fp:
@@ -116,10 +119,12 @@ for n, (t, d) in enumerate(results):
     rate = d["spm"] / d["matches"]
     #print(f'{n+1:>4d} {t:>4s} {d["matches"]:<3d} {d["spl"]:>2} {rate:%>.3f}')
     print(",".join(
+        # 16,180,25,44,22,68,0.324,S.P.A.M.,None,USA,Florida
         str(s) for s in [
             n+1, t,
-            d['spl'], d['spm'], d['matches'],
-            rate,
+            d['spb'], d['mics'], d['spm'], d['matches'],
+            "%0.3f" % rate,
+            "%0.3f" % (d['mics'] / (d['matches'] * 3)),
             d['name'], d['district'], d['country'], d['state'],
         ]))
 
