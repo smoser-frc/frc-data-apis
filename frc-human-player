@@ -40,11 +40,16 @@ events = get_single(result, "events")
 num_events = len(events)
 
 result = client.cache(year + "/teams")
-allteams = get_single(result, "teams")
+allteams = {t['teamNumber']:t for t in get_single(result, "teams")}
 
 hplaydata = {}
-for team in allteams:
-    hplaydata[team['teamNumber']] = {'matches': 0, 'spl': 0, 'spm': 0}
+for team, teamdata in allteams.items():
+    hplaydata[team] = {'matches': 0, 'spl': 0, 'spm': 0,
+                       'district': teamdata['districtCode'],
+                       'country': teamdata['country'],
+                       'name': teamdata['nameShort'].strip(),
+                       'state': teamdata['stateProv']}
+#import pdb;pdb.set_trace()
 
 print(f"There are {len(allteams)} teams and {len(events)} events in {year}")
 
@@ -95,10 +100,27 @@ for n, ev in enumerate(events):
         #import ipdb; ipdb.set_trace()
         print("   Had %d matches in %s" % (len(matches), level))
 
+hplaydata = {k: v for k, v in hplaydata.items() if v['matches'] != 0}
 with open("hplayer.json", "w") as fp:
     fp.write(json.dumps(hplaydata, indent=1))
 
-results = sorted(hplaydata.items(), key=lambda d: d[1]['spl'])
-import pprint; pprint.pprint(results)
+results = sorted(hplaydata.items(),
+                 key=lambda d: (d[1]['spm'] / d[1]['matches'],
+                                -d[1]['matches']),
+                 reverse=True)
 
-sys.exit(1)
+for n, (t, d) in enumerate(results):
+    if d['matches'] == 0:
+        continue
+
+    rate = d["spm"] / d["matches"]
+    #print(f'{n+1:>4d} {t:>4s} {d["matches"]:<3d} {d["spl"]:>2} {rate:%>.3f}')
+    print(",".join(
+        str(s) for s in [
+            n+1, t,
+            d['spl'], d['spm'], d['matches'],
+            rate,
+            d['name'], d['district'], d['country'], d['state'],
+        ]))
+
+#import pprint; pprint.pprint(results)
