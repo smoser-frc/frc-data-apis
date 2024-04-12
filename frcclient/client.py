@@ -1,8 +1,10 @@
 import base64
+import hashlib
 import json
 import os
 import requests
 import sys
+import time
 
 from urllib.parse import quote_plus
 from http import HTTPStatus
@@ -59,6 +61,8 @@ class client(object):
                     data[k].extend(v)
                 elif k.endswith("CountTotal") or k.endswith("CountPage"):
                     pass
+                elif k in ("eventCount",):
+                    pass
                 elif k in ("pageTotal", "pageCurrent"):
                     pass
                 else:
@@ -76,7 +80,7 @@ class client(object):
             n = n + 1
         return data
 
-    def cache(self, client, path, **kwargs):
+    def cache(self, path, **kwargs):
         result = {'path': path, 'args': kwargs}
         key = hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest()
         cachepath = os.path.join(self.cachepath, key)
@@ -85,7 +89,7 @@ class client(object):
                 result = json.loads(fp.read())
             return result['result']
 
-        result['result'] = client.get(path, **kwargs)
+        result['result'] = self.get(path, **kwargs)
         result['time'] = time.time()
         os.makedirs(os.path.dirname(cachepath), exist_ok=True)
         with open(cachepath, "w") as fp:
