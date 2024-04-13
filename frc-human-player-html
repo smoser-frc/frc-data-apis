@@ -171,8 +171,9 @@ print('<thead>' + htr + "</thead>")
 print("<tbody>")
 
 for n, (t, d) in enumerate(results):
+    if n >= 1000:
+        break
     rate = 100 * (d["spm"] / d["matches"])
-    #print(f'{n+1:>4d} {t:>4s} {d["matches"]:<3d} {d["spl"]:>2} {rate:%>.3f}')
     print("<tr>" + ''.join(
         ["<td>%s</td>" % f for f in [
             '',
@@ -182,15 +183,6 @@ for n, (t, d) in enumerate(results):
             "%0.3f" % (100 * (d['mics'] / (d['matches'] * 3))),
             d['name'], d['district'], d['country'], d['state'],
             ]]))
-    #print(",".join(
-    #    # 16,180,25,44,22,68,0.324,S.P.A.M.,None,USA,Florida
-    #    str(s) for s in [
-    #        n+1, t,
-    #        d['spb'], d['mics'], d['spm'], d['matches'],
-    #        "%0.3f" % rate,
-    #        "%0.3f" % (d['mics'] / (d['matches'] * 3)),
-    #        d['name'], d['district'], d['country'], d['state'],
-    #    ]))
 print("</tbody>")
 print('<tfoot>' + htr + "</tfoot>")
 print("</table>")
@@ -223,21 +215,6 @@ table
 
 </script>
 """)
-
-#     aLengthMenu: [
-#        [50, 100, 500, 200, -1],
-#        [50, 100, 500, 200, "All"]],
-#        iDisplayLength: -1
-#<script src="https://live.datatables.net/js/render/edit.js?3.17.11"></script>
-#<script>jsbinShowEdit({"static":"https://live.datatables.net","root":"https://live.datatables.net","csrf":"LEKIw5hIZeX1a8rFqUdsa+9O"});</script>
-#<script src="https://live.datatables.net/js/vendor/eventsource.js?3.17.11"></script>
-#<script src="https://live.datatables.net/js/spike.js?3.17.11"></script>
-#print("""
-#<script src="https://live.datatables.net/js/render/edit.js?3.17.11"></script>
-#<script>jsbinShowEdit({"static":"https://live.datatables.net","root":"https://live.datatables.net","csrf":"MOlaSRmkPQVLRMjb3vALfJUZ"});</script>
-#<script src="https://live.datatables.net/js/vendor/eventsource.js?3.17.11"></script>
-#<script src="https://live.datatables.net/js/spike.js?3.17.11"></script>
-#""")
 print("</body></html>")
 
 #import pprint; pprint.pprint(results)
